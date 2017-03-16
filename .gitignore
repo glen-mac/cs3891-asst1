@@ -1,0 +1,8 @@
+build/*
+defs.mk
+kern/build
+kern/compile
+kernel
+kernel-ASST1
+userland/lib/crt0/build
+sys161.conf
