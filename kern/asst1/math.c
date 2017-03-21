@@ -187,6 +187,8 @@ int maths (int data1, char **data2)
          * **********************************************************************
          */
 
+        /* destroy lock we made */
+        lock_destroy(lockA);
 
         /* clean up the semaphore we allocated earlier */
         sem_destroy(finished);
