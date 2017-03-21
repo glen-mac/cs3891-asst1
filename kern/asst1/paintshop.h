@@ -17,7 +17,9 @@ struct paintorder {
         unsigned int requested_tints[PAINT_COMPLEXITY]; /* Do not change */
         int go_home_flag;                               /* Do not change */
         struct paintcan can;                            /* Do not change */
-
+        int order_owner; /* an arbitrary ID assigned according to the
+                            buffer Index location the order was stored in.
+                            Used to index the this order's lock. */
         /* This struct can be extended with your own entries below here */ 
 
 };
