@@ -66,7 +66,7 @@ void producer_send(struct pc_data item)
 void producerconsumer_startup(void)
 {
         bufStart = 0;
-        bufEnd = 0;
+        bufEnd = BUFFER_SIZE - 1;
 
         /* create locks and semaphores and make sure they allocated correctly */
         producer_hold = sem_create("producer_hold", BUFFER_SIZE);
