@@ -68,8 +68,11 @@ void producerconsumer_startup(void)
         bufStart = 0;
         bufEnd = 0;
 
+        /* create locks and semaphores and make sure they allocated correctly */
         producer_hold = sem_create("producer_hold", BUFFER_SIZE);
+        KASSERT(producer_hold != 0);
         consumer_hold = sem_create("consumer_hold", BUFFER_SIZE);
+        KASSERT(consumer_hold != 0);
 
         bufLock = lock_create("bufLock");
         KASSERT(bufLock != 0);
@@ -78,6 +81,8 @@ void producerconsumer_startup(void)
 /* Perform any clean-up you need here */
 void producerconsumer_shutdown(void)
 {
+        /* clean up all memory */
+        lock_destroy(bufLock);
         sem_destroy(producer_hold);
         sem_destroy(consumer_hold);
 }
