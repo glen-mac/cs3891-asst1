@@ -34,6 +34,7 @@ unsigned long int adder_counters[NADDERS];
 /* We use a semaphore to wait for adder() threads to finish */
 struct semaphore *finished;
 
+struct lock *lockA;
 
 /*
  * **********************************************************************
@@ -77,7 +78,7 @@ static void adder(void * unusedpointer, unsigned long addernumber)
         while (flag) {
                 /* loop doing increments until we achieve the overall number
                    of increments */
-
+                lock_acquire(lockA);
                 a = counter;
                 if (a < NADDS) {
                         counter = counter + 1;
@@ -94,6 +95,7 @@ static void adder(void * unusedpointer, unsigned long addernumber)
                 } else {
                         flag = 0;
                 }
+                lock_release(lockA);
         }
 
         /* signal the main thread we have finished and then exit */
@@ -138,7 +140,9 @@ int maths (int data1, char **data2)
          * ********************************************************************
          */
 
-
+        lockA = lock_create("lock_a");
+        KASSERT(lockA != 0);
+        
         /*
          * Start NADDERS adder() threads.
          */
