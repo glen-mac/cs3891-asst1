@@ -128,5 +128,11 @@ int twolocks (int data1, char ** data2)
         P(finished);
 
         kprintf("Locking frenzy finished\n");
+        
+        /* clean up all memory allocations */
+        lock_destroy(locka);
+        lock_destroy(lockb);
+        sem_destroy(finished);
+        
         return 0;
 }
