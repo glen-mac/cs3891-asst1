@@ -1,1 +1,17 @@
-Place your design document here.
+This is a compulsory component of this assignment. You must write a small design document identifying the basic issues in all of the concurrency problems in this assignment, and then describe your solution to the problems you have identified. For example, detail which data structures are shared, and what code forms a critical section. The document must be plain ASCII text. We expect such a document to be roughly 200–1000 words, i.e. clear and to the point.
+
+The document will be used to guide our markers in their evaluation of your solution to the assignment. In the case of a poor results in the functional testing combined with a poor design document, we will base our assessment on these components alone. If you can't describe your own solution clearly, you can't expect us to reverse engineer the code to a poor and complex solution to the assignment.
+
+Place your design document in design.txt (which we have created for you) at the top of the source tree to OS/161 (i.e. in ~/cs3231/asst1-src/design.txt).
+
+Also, please word wrap you design doc if your have not already done so. You can use the unix fmt command to achieve this if your editor cannot.
+
+
+# Part 1
+
+# Part 2
+
+# Part 3
+
+# Part 4
+
