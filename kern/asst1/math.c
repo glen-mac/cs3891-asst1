@@ -34,6 +34,7 @@ unsigned long int adder_counters[NADDERS];
 /* We use a semaphore to wait for adder() threads to finish */
 struct semaphore *finished;
 
+/* lock to lock the critical region when accessing shared resources */
 struct lock *lockA;
 
 /*
@@ -78,6 +79,8 @@ static void adder(void * unusedpointer, unsigned long addernumber)
         while (flag) {
                 /* loop doing increments until we achieve the overall number
                    of increments */
+
+                /* lock the critical region to access shared resources */
                 lock_acquire(lockA);
                 a = counter;
                 if (a < NADDS) {
@@ -95,6 +98,8 @@ static void adder(void * unusedpointer, unsigned long addernumber)
                 } else {
                         flag = 0;
                 }
+                /* unlock the critical region - we are done with shared 
+                 * resources */
                 lock_release(lockA);
         }
 
@@ -140,6 +145,7 @@ int maths (int data1, char **data2)
          * ********************************************************************
          */
 
+        /* create lock and ensure it alloc'd correctly */
         lockA = lock_create("lock_a");
         KASSERT(lockA != 0);
         
