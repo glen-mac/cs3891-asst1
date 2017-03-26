@@ -317,18 +317,20 @@ static void go_home(void)
 
         lock_acquire(cust_lock);
         customers --;
-        lock_release(cust_lock);
 
         /* the last customer to leave tells the staff to go home */
         if (customers == 0) {
                 struct paintorder go_home_order;
                 int i;
-
+                lock_release(cust_lock);
                 go_home_order.go_home_flag = 1;
 
                 for (i = 0; i < NPAINTSHOPSTAFF; i++) {
                         order_paint(&go_home_order); /* returns without order being filled */
                 }
+        }
+        else {
+                lock_release(cust_lock);
         }
 }
 

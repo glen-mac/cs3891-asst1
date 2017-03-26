@@ -14,9 +14,22 @@
  *
  */
 
-/* Declare any globals you need here (e.g. locks, etc...) */
-
-
+/* lock for tints when used to mix */
+static struct lock *tint_hold[NCOLOURS];    
+/* locks for using the buffer and buffer indicies */
+static struct lock *bufLock;
+/* sem for blocking customers while paint is mixed */
+static struct semaphore *customer_hold[NCUSTOMERS]; 
+/* sem for blocking sales people from pulling next order while there isn't any */
+static struct semaphore *order_hold;        
+/* sem for blocking customers from making orders whilst buffer is full */                                           
+static struct semaphore *buffer_hold;
+/* buffer for holding at most NCUSTOMERS order */
+static struct paintorder* orderBuf[NCUSTOMERS];
+/* index for start and then end of the order buffer */
+static int bufStart;
+static int bufEnd;
+void sort_tints(unsigned int *tints);
 /*
  * **********************************************************************
  * FUNCTIONS EXECUTED BY CUSTOMER THREADS
@@ -34,8 +47,21 @@
 
 void order_paint(struct paintorder *order)
 {
-        (void) order; /* Avoid compiler warning, remove when used */
-        panic("You need to write some code!!!!\n");
+        /* reduce counter so that we don't exceed NCUSTOMERS orders */
+        P(buffer_hold);
+
+        /* get bufLock to modify buffer and indicies */
+        lock_acquire(bufLock);
+        bufEnd = (bufEnd + 1) % NCUSTOMERS;
+        order->order_owner = bufEnd;
+        orderBuf[bufEnd] = order;
+        lock_release(bufLock);
+
+        /* give shop staff notification that there is an order ready */
+        V(order_hold);
+
+        /* this will block the customer until a staff unblocks him/her */
+        P(customer_hold[order->order_owner]);
 }
 
 
@@ -56,9 +82,45 @@ void order_paint(struct paintorder *order)
 
 struct paintorder *take_order(void)
 {
-        struct paintorder *ret = NULL;
+        /* block until an order is ready */
+        P(order_hold);
+
+        /* get buflock to modify buffer and indicies */
+        lock_acquire(bufLock);
+        struct paintorder *ret = orderBuf[bufStart];
+        bufStart = (bufStart + 1) % NCUSTOMERS;
+        lock_release(bufLock);
+
+        /* let customers know there is one more position to place an order */
+        V(buffer_hold);
 
         return ret;
+}
+
+
+/*
+ * sort_tints()
+ *
+ * Uses insertion sort to sort the tints so that lock_acquire can lock
+ * the tint locks in order and not cause deadlocks between threads. This
+ * algorithm is suitable as we were told that there will be PAINT_COMPLEXITY
+ * in the low tens of numbers, and recursion at this low N is a large overhead.
+ */
+void sort_tints(unsigned int *tints)
+{
+   int i, j;
+   unsigned int el;
+   for (i = 1; i < PAINT_COMPLEXITY; i++)
+   {
+       j = i-1;
+       el = tints[i];
+       while (j >= 0 && tints[j] > el)
+       {
+           tints[j+1] = tints[j];
+           j = j-1;
+       }
+       tints[j+1] = el;
+   }
 }
 
 
@@ -76,12 +138,29 @@ struct paintorder *take_order(void)
 void fill_order(struct paintorder *order)
 {
 
-        /* add any sync primitives you need to ensure mutual exclusion
-           holds as described */
+        int i;
+        int tint; /* index tints, starting at 0 rather than 1 */
+        unsigned int *tints = order->requested_tints;
+        sort_tints(tints); /* sort to prevent deadlocking later */
+        unsigned char locked_tints[NCOLOURS] = {0}; /* prevent double-locking
+                                                       a lock for no reason */
 
-        /* the call to mix must remain */
+        /* lock tint locks which correspond to ones that this order needs */
+        for (i = 0; i < PAINT_COMPLEXITY; i++) {
+                tint = tints[i] - 1;
+                if (tints[i] && !locked_tints[tint]) {
+                        lock_acquire(tint_hold[tint]);
+                        locked_tints[tint] = 1;
+                }
+        }
         mix(order);
-
+        for (i = (PAINT_COMPLEXITY - 1); i >= 0; i--) {
+                tint = tints[i] - 1;
+                if (tints[i] && locked_tints[tint]) {
+                        lock_release(tint_hold[tint]); 
+                        locked_tints[tint] = 0;
+                }
+        }
 }
 
 
@@ -93,9 +172,9 @@ void fill_order(struct paintorder *order)
  */
 
 void serve_order(struct paintorder *order)
-{
-        (void) order; /* avoid a compiler warning, remove when you
-                         start */
+{       
+        /* notify the blocked customer that they may continue */
+        V(customer_hold[order->order_owner]);
 }
 
 
@@ -117,7 +196,24 @@ void serve_order(struct paintorder *order)
 
 void paintshop_open(void)
 {
-
+        int i;
+        bufStart = 0;
+        bufEnd = NCUSTOMERS - 1;
+        bufLock = lock_create("buf_lock");
+        order_hold = sem_create("order_hold_sem", 0); 
+        buffer_hold = sem_create("buffer_hold_sem", NCUSTOMERS);
+        /* create and name semaphores for each customer */
+        for (i = 0; i < NCUSTOMERS; i++){
+                char *semName = (char *)kmalloc(21);
+                snprintf(semName, 21, "customer_hold_sem_%d", i);
+                customer_hold[i] = sem_create(semName, 0);
+        }
+        /* create and name locks for each tint */
+        for (i = 0;  i < NCOLOURS; i++) {
+                char *lockName = (char *)kmalloc(8);
+                snprintf(lockName, 8, "tint_%d", i+1);
+                tint_hold[i] = lock_create(lockName);
+        }
 }
 
 /*
@@ -129,6 +225,16 @@ void paintshop_open(void)
 
 void paintshop_close(void)
 {
-
+        int i;
+        /* clean up ALL THE THINGS */
+        lock_destroy(bufLock);
+        sem_destroy(order_hold);
+        sem_destroy(buffer_hold);
+        for (i = 0; i < NCOLOURS; i++) {
+                lock_destroy(tint_hold[i]);
+        }
+        for (i = 0; i < NCUSTOMERS; i++) {
+                sem_destroy(customer_hold[i]);
+        }
 }
 
