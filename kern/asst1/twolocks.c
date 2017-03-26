@@ -53,8 +53,9 @@ static void ben(void * unusedpointer, unsigned long unusedint)
         kprintf("Hi, I'm Ben\n");
 
         for (i = 0; i < NUM_LOOPS; i++) {
-                lock_acquire(lockb);
+                /* swapped these locks to preserve resource acquire ordering */
                 lock_acquire(locka);
+                lock_acquire(lockb);
 
                 /* Ben now holds both locks and can do what ever bill
                    needs to do while holding the locks (nothing in
@@ -62,8 +63,9 @@ static void ben(void * unusedpointer, unsigned long unusedint)
                 (void) unusedpointer;
                 (void) unusedint;
 
-                lock_release(locka);
+                /* swapped these locks to preserve resource acquire ordering */
                 lock_release(lockb);
+                lock_release(locka);
         }
 
         kprintf("Ben says 'bye'\n");
@@ -128,5 +130,11 @@ int twolocks (int data1, char ** data2)
         P(finished);
 
         kprintf("Locking frenzy finished\n");
+        
+        /* clean up all memory allocations */
+        lock_destroy(locka);
+        lock_destroy(lockb);
+        sem_destroy(finished);
+        
         return 0;
 }
