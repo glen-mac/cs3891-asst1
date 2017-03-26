@@ -23,7 +23,7 @@ struct semaphore *consumer_hold; /* Mutex to control blocking within
 struct pc_data consumer_receive(void)
 {
         /* Block if 10 consumers have emptied the buffer without a producer 
-         * creating a signal */
+         * creating a signal. Effectively the number of items in buf. */
         P(consumer_hold);
 
         struct pc_data thedata;
@@ -44,7 +44,7 @@ struct pc_data consumer_receive(void)
 void producer_send(struct pc_data item)
 {
         /* Block if 10 producers have filled the buffer without a consumer 
-         * creating a signal */
+         * creating a signal. Effectively the number of free spots in buf. */
         P(producer_hold);
 
         lock_acquire(bufLock);
@@ -71,7 +71,7 @@ void producerconsumer_startup(void)
         /* create locks and semaphores and make sure they allocated correctly */
         producer_hold = sem_create("producer_hold", BUFFER_SIZE);
         KASSERT(producer_hold != 0);
-        consumer_hold = sem_create("consumer_hold", BUFFER_SIZE);
+        consumer_hold = sem_create("consumer_hold", 0);
         KASSERT(consumer_hold != 0);
 
         bufLock = lock_create("bufLock");
