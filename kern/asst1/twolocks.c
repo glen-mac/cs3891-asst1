@@ -53,6 +53,7 @@ static void ben(void * unusedpointer, unsigned long unusedint)
         kprintf("Hi, I'm Ben\n");
 
         for (i = 0; i < NUM_LOOPS; i++) {
+                /* swapped these locks to preserve resource acquire ordering */
                 lock_acquire(locka);
                 lock_acquire(lockb);
 
@@ -62,6 +63,7 @@ static void ben(void * unusedpointer, unsigned long unusedint)
                 (void) unusedpointer;
                 (void) unusedint;
 
+                /* swapped these locks to preserve resource acquire ordering */
                 lock_release(lockb);
                 lock_release(locka);
         }
