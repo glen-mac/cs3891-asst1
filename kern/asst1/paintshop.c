@@ -29,7 +29,7 @@ static struct paintorder* orderBuf[NCUSTOMERS];
 /* index for start and then end of the order buffer */
 static int bufStart;
 static int bufEnd;
-
+void sort_tints(unsigned int *tints);
 /*
  * **********************************************************************
  * FUNCTIONS EXECUTED BY CUSTOMER THREADS
@@ -99,6 +99,32 @@ struct paintorder *take_order(void)
 
 
 /*
+ * sort_tints()
+ *
+ * Uses insertion sort to sort the tints so that lock_acquire can lock
+ * the tint locks in order and not cause deadlocks between threads. This
+ * algorithm is suitable as we were told that there will be PAINT_COMPLEXITY
+ * in the low tens of numbers, and recursion at this low N is a large overhead.
+ */
+void sort_tints(unsigned int *tints)
+{
+   int i, j;
+   unsigned int el;
+   for (i = 1; i < PAINT_COMPLEXITY; i++)
+   {
+       j = i-1;
+       el = tints[i];
+       while (j >= 0 && tints[j] > el)
+       {
+           tints[j+1] = tints[j];
+           j = j-1;
+       }
+       tints[j+1] = el;
+   }
+}
+
+
+/*
  * fill_order()
  *
  * This function takes an order provided by take_order and fills the
@@ -113,17 +139,26 @@ void fill_order(struct paintorder *order)
 {
 
         int i;
+        int tint; /* index tints, starting at 0 rather than 1 */
         unsigned int *tints = order->requested_tints;
+        sort_tints(tints); /* sort to prevent deadlocking later */
+        unsigned char locked_tints[NCOLOURS] = {0}; /* prevent double-locking
+                                                       a lock for no reason */
+
         /* lock tint locks which correspond to ones that this order needs */
         for (i = 0; i < PAINT_COMPLEXITY; i++) {
-                if (tints[i] > 0) {
-                        lock_acquire(tint_hold[tints[i] - 1]);
+                tint = tints[i] - 1;
+                if (tints[i] && !locked_tints[tint]) {
+                        lock_acquire(tint_hold[tint]);
+                        locked_tints[tint] = 1;
                 }
         }
         mix(order);
         for (i = (PAINT_COMPLEXITY - 1); i >= 0; i--) {
-                if (tints[i] > 0) {
-                        lock_release(tint_hold[tints[i] - 1]); 
+                tint = tints[i] - 1;
+                if (tints[i] && locked_tints[tint]) {
+                        lock_release(tint_hold[tint]); 
+                        locked_tints[tint] = 0;
                 }
         }
 }
