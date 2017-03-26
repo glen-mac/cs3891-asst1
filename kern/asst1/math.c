@@ -41,6 +41,7 @@ struct semaphore *finished;
  * **********************************************************************
  */
 
+struct lock *adder_lock;
 
 
 /*
@@ -78,6 +79,8 @@ static void adder(void * unusedpointer, unsigned long addernumber)
                 /* loop doing increments until we achieve the overall number
                    of increments */
 
+                lock_acquire(adder_lock); 
+                // kprintf("acquired lock in thread %ld\n", addernumber);
                 a = counter;
                 if (a < NADDS) {
                         counter = counter + 1;
@@ -94,6 +97,8 @@ static void adder(void * unusedpointer, unsigned long addernumber)
                 } else {
                         flag = 0;
                 }
+                // kprintf("releasing lock in thread %ld, count is %ld\n", addernumber, counter);
+                lock_release(adder_lock);
         }
 
         /* signal the main thread we have finished and then exit */
@@ -137,6 +142,10 @@ int maths (int data1, char **data2)
          * INSERT ANY INITIALISATION CODE YOU REQUIRE HERE
          * ********************************************************************
          */
+         adder_lock = lock_create("adder mutex");
+         if (adder_lock == NULL) {
+                panic("failed to initiliase adder_lock");
+         }
 
 
         /*
@@ -182,6 +191,7 @@ int maths (int data1, char **data2)
          * INSERT ANY CLEANUP CODE YOU REQUIRE HERE
          * **********************************************************************
          */
+        lock_destroy(adder_lock);
 
 
         /* clean up the semaphore we allocated earlier */
