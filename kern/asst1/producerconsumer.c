@@ -13,7 +13,13 @@ static struct pc_data buffer[BUFFER_SIZE];
 static struct semaphore *mutex;
 static struct semaphore *empty;
 static struct semaphore *full;
+// static struct lock *bufStartLock;
+struct bufInfo {
+        int start;
+        int end;
+};
 
+static struct bufInfo BufInfo;
 
 
 /* consumer_receive() is called by a consumer to request more data. It
@@ -22,19 +28,14 @@ static struct semaphore *full;
 
 struct pc_data consumer_receive(void)
 {
-        
-        /* remove this line when you start
-         * (void) buffer; 
-         */
-
-        /* FIXME: this data should come from your buffer, obviously... */
-
         P(full);
         P(mutex);
-        // kprintf("consumer_receive, empty: %d\n", empty->sem_count);
+
         struct pc_data thedata;
-        thedata.item1 = buffer[empty->sem_count].item1;
-        thedata.item2 = buffer[empty->sem_count].item2;
+        thedata = buffer[BufInfo.start];
+        // kprintf("removed at %d\n", BufInfo.start);
+        BufInfo.start = (BufInfo.start + 1) % BUFFER_SIZE;
+
         V(mutex);
         V(empty);
 
@@ -48,11 +49,11 @@ void producer_send(struct pc_data item)
 {
         P(empty);
         P(mutex);
-        // kprintf("producer_send, empty: %d\n", empty->sem_count);
-        buffer[empty->sem_count] = item;
-        /* Remove this when you add your code
-         * (void) item; 
-         */
+
+        buffer[BufInfo.end] = item;
+        // kprintf("inserted at %d\n", BufInfo.end);
+        BufInfo.end = (BufInfo.end + 1) % BUFFER_SIZE;
+
         V(mutex);
         V(full);
 
@@ -66,13 +67,20 @@ void producer_send(struct pc_data item)
 
 void producerconsumer_startup(void)
 {
+        BufInfo.start = 0;
+        BufInfo.end = 0;
+
         mutex = sem_create("mutex", 1);
+        KASSERT(mutex);
 
         // number of empty slots
         empty = sem_create("empty", BUFFER_SIZE);
+        KASSERT(empty);
 
         // number of full slots
         full = sem_create("full", 0);
+        KASSERT(full);
+
 }
 
 /* Perform any clean-up you need here */
